@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, Trash2, X, ChevronDown, ChevronUp } from 'lucide-react'
 import leadsBase from '../data/leads.json'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 // Mapa de nomes de coluna → campo interno
 const COL_MAP = {
@@ -69,6 +70,7 @@ function buildBaseUsernames() {
 const PREVIEW_ROWS = 5
 
 export default function ImportarPlanilha({ uploadedLeads, onAddLeads, onClearLeads }) {
+  const isMobile = useIsMobile()
   const [dragging, setDragging] = useState(false)
   const [parsing, setParsing] = useState(false)
   const [parsed, setParsed] = useState(null) // { leads, filename, duplicates, unmapped }
@@ -205,10 +207,10 @@ export default function ImportarPlanilha({ uploadedLeads, onAddLeads, onClearLea
   const previewLeads = parsed?.leads?.slice(0, previewExpanded ? 20 : PREVIEW_ROWS) || []
 
   return (
-    <div style={{ padding: '28px 32px', maxWidth: '900px' }}>
+    <div style={{ padding: isMobile ? '16px' : '28px 32px', maxWidth: '900px', width: '100%' }}>
       {/* Header */}
-      <div style={{ marginBottom: '28px' }}>
-        <h1 style={{ fontSize: '22px', fontWeight: '700', color: '#e2e8f0', margin: 0 }}>
+      <div style={{ marginBottom: isMobile ? '20px' : '28px' }}>
+        <h1 style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: '700', color: '#e2e8f0', margin: 0 }}>
           Importar Planilha
         </h1>
         <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0' }}>

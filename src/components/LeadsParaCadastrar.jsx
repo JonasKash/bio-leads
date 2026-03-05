@@ -3,6 +3,7 @@ import { Search, SlidersHorizontal, ChevronLeft, ChevronRight } from 'lucide-rea
 import ProfileCard from './ProfileCard'
 import GerarSiteModal from './GerarSiteModal'
 import { calcEngajamento } from './EngajamentoBadge'
+import { useIsMobile } from '../hooks/useIsMobile'
 import leadsRaw from '../data/leads.json'
 
 // Leads base (do JSON fixo) — filtra inválidos
@@ -10,7 +11,8 @@ const baseLeads = leadsRaw.filter(l => l.username && l.isPrivate !== 'N/A' && l.
 
 const PAGE_SIZE = 20
 
-export default function LeadsParaCadastrar({ clienteIds, onMarcarCliente, uploadedLeads = [] }) {
+export default function LeadsParaCadastrar({ clienteIds, excluidosIds, excluidosUsernames, permanentesIds, onMarcarCliente, onExcluirLead, uploadedLeads = [] }) {
+  const isMobile = useIsMobile()
   const [search, setSearch] = useState('')
   const [filtro, setFiltro] = useState('todos')
   const [ordenar, setOrdenar] = useState('followers_desc')
@@ -18,12 +20,21 @@ export default function LeadsParaCadastrar({ clienteIds, onMarcarCliente, upload
   const [leadParaGerar, setLeadParaGerar] = useState(null)
 
   const filtered = useMemo(() => {
-    // Merge base + uploaded (uploaded primeiro para aparecerem destacados)
-    const merged = [
-      ...uploadedLeads.filter(l => l.username && l.isPrivate !== 'YES'),
-      ...baseLeads,
+    // Mesclar leads fixos com importados e filtrar já cadastrados ou excluídos
+    const currentUploaded = Array.isArray(uploadedLeads) ? uploadedLeads : []
+    const combined = [
+      ...currentUploaded.filter(l => l.username && l.isPrivate !== 'YES'),
+      ...baseLeads.filter(bl => !currentUploaded.some(ul => ul.username?.toLowerCase() === bl.username?.toLowerCase())),
     ]
-    let result = merged.filter(l => !clienteIds.has(l.id))
+
+    let result = combined.filter(l => {
+      const lid = l.id
+      const lusername = l.username?.toLowerCase()
+      const isCliente = (lid && clienteIds.has(lid))
+      const isExcluido = (lid && excluidosIds.has(lid))
+      const isPermanente = (lid && permanentesIds.has(lid))
+      return !isCliente && !isExcluido && !isPermanente
+    })
 
     // Search
     if (search.trim()) {
@@ -37,6 +48,7 @@ export default function LeadsParaCadastrar({ clienteIds, onMarcarCliente, upload
 
     // Filter
     if (filtro === 'com_link') result = result.filter(l => l.externalUrl)
+    else if (filtro === 'sem_link') result = result.filter(l => !l.externalUrl)
     else if (filtro === 'business') result = result.filter(l => l.isBusiness === 'YES')
     else if (filtro === 'verificado') result = result.filter(l => l.isVerified === 'Yes')
 
@@ -58,7 +70,7 @@ export default function LeadsParaCadastrar({ clienteIds, onMarcarCliente, upload
     )
 
     return result
-  }, [search, filtro, ordenar, clienteIds, uploadedLeads])
+  }, [search, filtro, ordenar, clienteIds, uploadedLeads, excluidosIds, excluidosUsernames, permanentesIds])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const safePage = Math.min(page, totalPages)
@@ -68,20 +80,22 @@ export default function LeadsParaCadastrar({ clienteIds, onMarcarCliente, upload
   function handleFiltro(v) { setFiltro(v); setPage(1) }
   function handleOrdenar(v) { setOrdenar(v); setPage(1) }
 
+  const pad = isMobile ? '12px' : '28px 32px'
+
   return (
-    <div style={{ padding: '28px 32px', maxWidth: '1400px' }}>
+    <div style={{ padding: pad, maxWidth: '1400px' }}>
       {/* Header */}
-      <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '22px', fontWeight: '700', color: '#e2e8f0', margin: 0 }}>
+      <div style={{ marginBottom: isMobile ? '16px' : '24px' }}>
+        <h1 style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: '700', color: '#e2e8f0', margin: 0, letterSpacing: '-0.02em' }}>
           Leads para Cadastrar
         </h1>
-        <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0' }}>
-          {filtered.length} lead{filtered.length !== 1 ? 's' : ''} disponíve{filtered.length !== 1 ? 'is' : 'l'}
+        <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}>
+          <span>{filtered.length} lead{filtered.length !== 1 ? 's' : ''} disponíve{filtered.length !== 1 ? 'is' : 'l'}</span>
           {uploadedLeads.length > 0 && (
             <span style={{
-              marginLeft: '10px', backgroundColor: 'rgba(168,85,247,0.15)', color: '#a855f7',
-              border: '1px solid rgba(168,85,247,0.3)', fontSize: '11px', fontWeight: '600',
-              padding: '1px 8px', borderRadius: '20px',
+              backgroundColor: 'rgba(168,85,247,0.15)', color: '#a855f7',
+              fontWeight: '600', padding: '2px 8px', borderRadius: '4px',
+              fontSize: '11px'
             }}>
               +{uploadedLeads.length} importados
             </span>
@@ -90,21 +104,21 @@ export default function LeadsParaCadastrar({ clienteIds, onMarcarCliente, upload
       </div>
 
       {/* Controls */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
-        {/* Search */}
-        <div style={{ position: 'relative', flex: '1', minWidth: '220px', maxWidth: '360px' }}>
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+        {/* Search — full width on mobile */}
+        <div style={{ position: 'relative', flex: isMobile ? '1 1 100%' : '1', minWidth: '0', maxWidth: isMobile ? '100%' : '360px' }}>
           <Search size={14} style={{
             position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)',
             color: '#64748b', pointerEvents: 'none',
           }} />
           <input
             type="text"
-            placeholder="Buscar por username, nome ou bio..."
+            placeholder="Buscar username, nome ou bio..."
             value={search}
             onChange={e => handleSearch(e.target.value)}
             style={{
               width: '100%', backgroundColor: '#1c1c26', border: '1px solid #2a2a3a',
-              borderRadius: '8px', padding: '8px 12px 8px 34px',
+              borderRadius: '8px', padding: '9px 12px 9px 34px',
               color: '#e2e8f0', fontSize: '13px', outline: 'none',
             }}
             onFocus={e => e.target.style.borderColor = '#a855f7'}
@@ -112,70 +126,78 @@ export default function LeadsParaCadastrar({ clienteIds, onMarcarCliente, upload
           />
         </div>
 
-        {/* Filter */}
-        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <SlidersHorizontal size={14} style={{ color: '#64748b' }} />
-          {[
-            { value: 'todos', label: 'Todos' },
-            { value: 'com_link', label: 'Com link' },
-            { value: 'business', label: 'Business' },
-            { value: 'verificado', label: 'Verificados' },
-          ].map(f => (
-            <FilterBtn key={f.value} active={filtro === f.value} onClick={() => handleFiltro(f.value)}>
-              {f.label}
-            </FilterBtn>
-          ))}
-        </div>
+        {/* Filter + Sort row on mobile */}
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', flex: isMobile ? '1 1 100%' : '1' }}>
+          <SlidersHorizontal size={14} style={{ color: '#64748b', flexShrink: 0 }} />
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', flex: '1 1 auto' }}>
+            {[
+              { value: 'todos', label: 'Todos' },
+              { value: 'com_link', label: 'Com link' },
+              { value: 'sem_link', label: 'Sem link' },
+              { value: 'business', label: 'Business' },
+              { value: 'verificado', label: 'Verificados' },
+            ].map(f => (
+              <FilterBtn key={f.value} active={filtro === f.value} onClick={() => handleFiltro(f.value)}>
+                {f.label}
+              </FilterBtn>
+            ))}
+            {filtro !== 'todos' && (
+              <button
+                onClick={() => handleFiltro('todos')}
+                style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '11px', cursor: 'pointer', padding: '0 4px' }}
+              >
+                Limpar
+              </button>
+            )}
+          </div>
 
-        {/* Sort */}
-        <select
-          value={ordenar}
-          onChange={e => handleOrdenar(e.target.value)}
-          style={{
-            backgroundColor: '#1c1c26', border: '1px solid #2a2a3a', borderRadius: '8px',
-            color: '#e2e8f0', fontSize: '12px', padding: '7px 10px', outline: 'none',
-            cursor: 'pointer',
-          }}
-        >
-          <option value="followers_desc">Seguidores ↓</option>
-          <option value="followers_asc">Seguidores ↑</option>
-          <option value="eng_desc">Engajamento ↓</option>
-          <option value="eng_asc">Engajamento ↑</option>
-          <option value="nome_az">Nome A-Z</option>
-        </select>
+          <select
+            value={ordenar}
+            onChange={e => handleOrdenar(e.target.value)}
+            style={{
+              backgroundColor: '#1c1c26', border: '1px solid #2a2a3a', borderRadius: '8px',
+              color: '#e2e8f0', fontSize: '12px', padding: '7px 10px', outline: 'none',
+              cursor: 'pointer', marginLeft: isMobile ? '0' : 'auto', flexShrink: 0
+            }}
+          >
+            <option value="followers_desc">Seguidores ↓</option>
+            <option value="followers_asc">Seguidores ↑</option>
+            <option value="eng_desc">Engajamento ↓</option>
+            <option value="eng_asc">Engajamento ↑</option>
+            <option value="nome_az">Nome A-Z</option>
+          </select>
+        </div>
       </div>
 
       {/* Grid */}
       {pageLeads.length === 0 ? (
-        <div style={{
-          textAlign: 'center', padding: '80px 0', color: '#64748b', fontSize: '14px',
-        }}>
+        <div style={{ textAlign: 'center', padding: '60px 0', color: '#64748b', fontSize: '14px' }}>
           Nenhum lead encontrado com os filtros atuais.
         </div>
       ) : (
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-          gap: '16px',
+          gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(320px, 1fr))',
+          gap: isMobile ? '12px' : '16px',
           marginBottom: '24px',
         }}>
           {pageLeads.map(lead => (
-            <ProfileCard key={lead.id} lead={lead} onMarcarCliente={onMarcarCliente} onGerarSite={setLeadParaGerar} />
+            <ProfileCard key={lead.id} lead={lead} onMarcarCliente={onMarcarCliente} onGerarSite={setLeadParaGerar} onExcluirLead={onExcluirLead} />
           ))}
         </div>
       )}
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'center', paddingBottom: '32px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', paddingBottom: '24px' }}>
           <PagBtn disabled={safePage === 1} onClick={() => setPage(p => p - 1)}>
-            <ChevronLeft size={16} /> Anterior
+            <ChevronLeft size={16} /> {!isMobile && 'Anterior'}
           </PagBtn>
           <span style={{ fontSize: '13px', color: '#94a3b8' }}>
-            Página <strong style={{ color: '#e2e8f0' }}>{safePage}</strong> de <strong style={{ color: '#e2e8f0' }}>{totalPages}</strong>
+            <strong style={{ color: '#e2e8f0' }}>{safePage}</strong> / <strong style={{ color: '#e2e8f0' }}>{totalPages}</strong>
           </span>
           <PagBtn disabled={safePage === totalPages} onClick={() => setPage(p => p + 1)}>
-            Próxima <ChevronRight size={16} />
+            {!isMobile && 'Próxima'} <ChevronRight size={16} />
           </PagBtn>
         </div>
       )}

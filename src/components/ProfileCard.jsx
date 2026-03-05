@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { ExternalLink, Users, UserCheck, FileText, Building2, BadgeCheck, Lock, ChevronDown, ChevronUp, UserPlus, MessageCircle, Globe } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ExternalLink, Users, UserCheck, FileText, Building2, BadgeCheck, Lock, ChevronDown, ChevronUp, UserPlus, MessageCircle, Globe, Trash2 } from 'lucide-react'
 import EngajamentoBadge from './EngajamentoBadge'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 function formatNum(n) {
   if (!n && n !== 0) return '—'
@@ -17,6 +18,12 @@ function proxyUrl(url) {
 
 function Avatar({ avatar, username }) {
   const [failed, setFailed] = useState(false)
+
+  // Resetar falha se a URL mudar (ex: após atualização via Apify)
+  useEffect(() => {
+    setFailed(false)
+  }, [avatar])
+
   const initials = (username || '?').slice(0, 2).toUpperCase()
   const src = proxyUrl(avatar)
 
@@ -48,7 +55,8 @@ function Avatar({ avatar, username }) {
   )
 }
 
-export default function ProfileCard({ lead, onMarcarCliente, onGerarSite }) {
+export default function ProfileCard({ lead, onMarcarCliente, onGerarSite, onExcluirLead }) {
+  const isMobile = useIsMobile()
   const [bioExpanded, setBioExpanded] = useState(false)
 
   const hasBio = lead.bio && lead.bio.trim().length > 0
@@ -59,19 +67,24 @@ export default function ProfileCard({ lead, onMarcarCliente, onGerarSite }) {
       backgroundColor: '#1c1c26',
       border: '1px solid #2a2a3a',
       borderRadius: '12px',
-      padding: '18px',
+      padding: isMobile ? '14px' : '18px',
       display: 'flex',
       flexDirection: 'column',
       gap: '14px',
       transition: 'border-color 0.2s, box-shadow 0.2s',
+      overflow: 'hidden'
     }}
       onMouseEnter={e => {
-        e.currentTarget.style.borderColor = 'rgba(168,85,247,0.4)'
-        e.currentTarget.style.boxShadow = '0 0 0 1px rgba(168,85,247,0.1), 0 4px 20px rgba(168,85,247,0.08)'
+        if (!isMobile) {
+          e.currentTarget.style.borderColor = 'rgba(168,85,247,0.4)'
+          e.currentTarget.style.boxShadow = '0 0 0 1px rgba(168,85,247,0.1), 0 4px 20px rgba(168,85,247,0.08)'
+        }
       }}
       onMouseLeave={e => {
-        e.currentTarget.style.borderColor = '#2a2a3a'
-        e.currentTarget.style.boxShadow = 'none'
+        if (!isMobile) {
+          e.currentTarget.style.borderColor = '#2a2a3a'
+          e.currentTarget.style.boxShadow = 'none'
+        }
       }}
     >
       {/* Header */}
@@ -123,7 +136,12 @@ export default function ProfileCard({ lead, onMarcarCliente, onGerarSite }) {
             <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>{lead.category}</div>
           )}
         </div>
-        <EngajamentoBadge followers={lead.followers} following={lead.following} posts={lead.posts} />
+        <EngajamentoBadge
+          followers={lead.followers}
+          following={lead.following}
+          posts={lead.posts}
+          realEng={lead.realEng}
+        />
       </div>
 
       {/* Stats */}
@@ -131,9 +149,9 @@ export default function ProfileCard({ lead, onMarcarCliente, onGerarSite }) {
         display: 'flex', gap: '4px',
         backgroundColor: '#0f0f13', borderRadius: '8px', padding: '10px 12px',
       }}>
-        <Stat icon={<Users size={13} />} label="Seguidores" value={formatNum(lead.followers)} />
+        <Stat icon={<Users size={13} />} label={isMobile ? "Seg." : "Seguidores"} value={formatNum(lead.followers)} />
         <div style={{ width: '1px', backgroundColor: '#2a2a3a' }} />
-        <Stat icon={<UserCheck size={13} />} label="Seguindo" value={formatNum(lead.following)} />
+        <Stat icon={<UserCheck size={13} />} label={isMobile ? "Seg." : "Seguindo"} value={formatNum(lead.following)} />
         <div style={{ width: '1px', backgroundColor: '#2a2a3a' }} />
         <Stat icon={<FileText size={13} />} label="Posts" value={formatNum(lead.posts)} />
       </div>
@@ -250,6 +268,29 @@ export default function ProfileCard({ lead, onMarcarCliente, onGerarSite }) {
         >
           <UserPlus size={12} />
           Cliente
+        </button>
+
+        <button
+          onClick={() => onExcluirLead(lead)}
+          title="Excluir Lead"
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444',
+            border: '1px solid rgba(239,68,68,0.2)', borderRadius: '6px',
+            padding: '6px', flexShrink: 0,
+            transition: 'all 0.15s',
+            cursor: 'pointer',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.2)'
+            e.currentTarget.style.borderColor = '#ef4444'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.1)'
+            e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)'
+          }}
+        >
+          <Trash2 size={13} />
         </button>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Plus, Edit2, Trash2, ExternalLink, X, Save, CheckCircle } from 'lucide-react'
+import { Plus, Edit2, Trash2, ExternalLink, X, Save, CheckCircle, RotateCcw, Ghost } from 'lucide-react'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const PLANOS = ['Básico', 'Pro', 'Premium']
 const STATUS = ['Ativo', 'Pausado', 'Cancelado']
@@ -53,7 +54,7 @@ function AvatarSmall({ avatar, username }) {
 function Modal({ title, onClose, children }) {
   return (
     <div style={{
-      position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 50,
+      position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000,
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px',
     }} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div style={{
@@ -93,11 +94,23 @@ const inputStyle = {
   boxSizing: 'border-box',
 }
 
-export default function LeadsCadastrados({ clientes, onAdd, onEdit, onRemove }) {
+export default function LeadsCadastrados({
+  clientes,
+  excluidos = [],
+  view = 'ativos',
+  onSetView,
+  onAdd,
+  onEdit,
+  onRemove,
+  onRestaurarLead,
+  onRemoverDefinitivo
+}) {
+  const isMobile = useIsMobile()
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState(null)
   const [form, setForm] = useState(emptyForm())
   const [confirmDelete, setConfirmDelete] = useState(null)
+  const [permanentDeleteId, setPermanentDeleteId] = useState(null)
 
   function openNew() {
     setForm(emptyForm())
@@ -131,6 +144,11 @@ export default function LeadsCadastrados({ clientes, onAdd, onEdit, onRemove }) 
     setConfirmDelete(null)
   }
 
+  function handlePermanentDelete(id) {
+    onRemoverDefinitivo(id)
+    setPermanentDeleteId(null)
+  }
+
   const F = (field) => ({
     value: form[field],
     onChange: e => setForm(f => ({ ...f, [field]: e.target.value })),
@@ -139,139 +157,209 @@ export default function LeadsCadastrados({ clientes, onAdd, onEdit, onRemove }) 
     onBlur: e => e.target.style.borderColor = '#2a2a3a',
   })
 
+  const renderMobileCard = (c) => {
+    const sc = STATUS_COLORS[c.status] || STATUS_COLORS.Ativo
+    return (
+      <div key={c.id} style={{
+        backgroundColor: '#1c1c26', border: '1px solid #2a2a3a', borderRadius: '12px', padding: '14px',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+          <AvatarSmall avatar={c.avatar} username={c.username} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ color: '#a855f7', fontWeight: '700', fontSize: '14px' }}>@{c.username}</div>
+            {c.nome && <div style={{ color: '#94a3b8', fontSize: '12px', marginTop: '1px' }}>{c.nome}</div>}
+          </div>
+          <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+            <IconBtn onClick={() => openEdit(c)} title="Editar"><Edit2 size={14} /></IconBtn>
+            <IconBtn onClick={() => setConfirmDelete(c.id)} title="Remover" danger><Trash2 size={14} /></IconBtn>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: c.linkBio ? '8px' : '0' }}>
+          <span style={{
+            backgroundColor: 'rgba(168,85,247,0.12)', color: '#a855f7',
+            border: '1px solid rgba(168,85,247,0.25)',
+            fontSize: '11px', fontWeight: '600', padding: '2px 8px', borderRadius: '20px',
+          }}>{c.plano}</span>
+          <span style={{
+            backgroundColor: sc.bg, color: sc.color, border: `1px solid ${sc.border}`,
+            fontSize: '11px', fontWeight: '600', padding: '2px 8px', borderRadius: '20px',
+          }}>{c.status}</span>
+          {c.dataContratacao && (
+            <span style={{ fontSize: '11px', color: '#64748b', padding: '2px 0' }}>{c.dataContratacao}</span>
+          )}
+        </div>
+        {c.linkBio && (
+          <a href={c.linkBio} target="_blank" rel="noreferrer"
+            style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#3b82f6', fontSize: '12px', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <ExternalLink size={11} />
+            {c.linkBio.replace(/^https?:\/\//, '')}
+          </a>
+        )}
+      </div>
+    )
+  }
+
+  const renderTableRow = (c, i) => {
+    const sc = STATUS_COLORS[c.status] || STATUS_COLORS.Ativo
+    return (
+      <tr key={c.id} style={{
+        borderBottom: '1px solid #2a2a3a',
+        backgroundColor: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)',
+      }}>
+        <td style={{ padding: '10px 12px' }}><AvatarSmall avatar={c.avatar} username={c.username} /></td>
+        <td style={{ padding: '10px 12px', color: '#a855f7', fontWeight: '600' }}>@{c.username}</td>
+        <td style={{ padding: '10px 12px', color: '#94a3b8' }}>{c.nome || '—'}</td>
+        <td style={{ padding: '10px 12px' }}>
+          {c.linkBio ? (
+            <a href={c.linkBio} target="_blank" rel="noreferrer"
+              style={{ color: '#3b82f6', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <ExternalLink size={11} />
+              {c.linkBio.replace(/^https?:\/\//, '')}
+            </a>
+          ) : <span style={{ color: '#64748b' }}>—</span>}
+        </td>
+        <td style={{ padding: '10px 12px' }}>
+          <span style={{
+            backgroundColor: 'rgba(168,85,247,0.12)', color: '#a855f7',
+            border: '1px solid rgba(168,85,247,0.25)',
+            fontSize: '11px', fontWeight: '600', padding: '2px 8px', borderRadius: '20px',
+          }}>{c.plano}</span>
+        </td>
+        <td style={{ padding: '10px 12px' }}>
+          <span style={{
+            backgroundColor: sc.bg, color: sc.color, border: `1px solid ${sc.border}`,
+            fontSize: '11px', fontWeight: '600', padding: '2px 8px', borderRadius: '20px',
+          }}>{c.status}</span>
+        </td>
+        <td style={{ padding: '10px 12px', color: '#64748b', fontSize: '12px', whiteSpace: 'nowrap' }}>{c.dataContratacao || '—'}</td>
+        <td style={{ padding: '10px 12px' }}>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <IconBtn onClick={() => openEdit(c)} title="Editar"><Edit2 size={13} /></IconBtn>
+            <IconBtn onClick={() => setConfirmDelete(c.id)} title="Remover" danger><Trash2 size={13} /></IconBtn>
+          </div>
+        </td>
+      </tr>
+    )
+  }
+
   return (
-    <div style={{ padding: '28px 32px', maxWidth: '1200px' }}>
+    <div style={{ padding: isMobile ? '12px' : '28px 32px', maxWidth: '1200px' }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h1 style={{ fontSize: '22px', fontWeight: '700', color: '#e2e8f0', margin: 0 }}>
-            Leads Cadastrados
+          <h1 style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: '700', color: '#e2e8f0', margin: 0 }}>
+            {view === 'ativos' ? 'Leads Cadastrados' : 'Leads Excluídos'}
           </h1>
           <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0' }}>
-            {clientes.length} cliente{clientes.length !== 1 ? 's' : ''} cadastrado{clientes.length !== 1 ? 's' : ''}
+            {view === 'ativos'
+              ? `${clientes.length} cliente${clientes.length !== 1 ? 's' : ''} cadastrado${clientes.length !== 1 ? 's' : ''}`
+              : `${excluidos.length} lead${excluidos.length !== 1 ? 's' : ''} na lixeira`
+            }
           </p>
         </div>
+
+        {view === 'ativos' && (
+          <button
+            onClick={openNew}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              backgroundColor: '#a855f7', color: '#fff',
+              border: 'none', borderRadius: '8px',
+              fontSize: isMobile ? '12px' : '13px', fontWeight: '600',
+              padding: isMobile ? '8px 14px' : '9px 18px', cursor: 'pointer',
+              transition: 'background-color 0.15s',
+            }}
+          >
+            <Plus size={15} /> {isMobile ? 'Novo' : 'Adicionar Cliente'}
+          </button>
+        )}
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: '20px', borderBottom: '1px solid #2a2a3a', marginBottom: '24px' }}>
         <button
-          onClick={openNew}
+          onClick={() => onSetView('ativos')}
           style={{
-            display: 'flex', alignItems: 'center', gap: '6px',
-            backgroundColor: '#a855f7', color: '#fff',
-            border: 'none', borderRadius: '8px',
-            fontSize: '13px', fontWeight: '600',
-            padding: '9px 18px', cursor: 'pointer',
-            transition: 'background-color 0.15s',
+            padding: '8px 4px', fontSize: '13px', fontWeight: '600',
+            backgroundColor: 'transparent', border: 'none', cursor: 'pointer',
+            color: view === 'ativos' ? '#a855f7' : '#64748b',
+            borderBottom: view === 'ativos' ? '2px solid #a855f7' : '2px solid transparent',
           }}
-          onMouseEnter={e => e.currentTarget.style.backgroundColor = '#9333ea'}
-          onMouseLeave={e => e.currentTarget.style.backgroundColor = '#a855f7'}
         >
-          <Plus size={15} /> Adicionar Cliente
+          Clientes Ativos
+        </button>
+        <button
+          onClick={() => onSetView('excluidos')}
+          style={{
+            padding: '8px 4px', fontSize: '13px', fontWeight: '600',
+            backgroundColor: 'transparent', border: 'none', cursor: 'pointer',
+            color: view === 'excluidos' ? '#ef4444' : '#64748b',
+            borderBottom: view === 'excluidos' ? '2px solid #ef4444' : '2px solid transparent',
+          }}
+        >
+          Lixeira ({excluidos.length})
         </button>
       </div>
 
-      {/* Table */}
-      {clientes.length === 0 ? (
-        <div style={{
-          textAlign: 'center', padding: '80px 0', color: '#64748b',
-          border: '2px dashed #2a2a3a', borderRadius: '12px',
-        }}>
-          <CheckCircle size={40} style={{ marginBottom: '12px', opacity: 0.3 }} />
-          <div style={{ fontSize: '15px', fontWeight: '600', marginBottom: '6px' }}>Nenhum cliente ainda</div>
-          <div style={{ fontSize: '13px' }}>Marque leads como cliente ou adicione manualmente.</div>
-        </div>
-      ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid #2a2a3a' }}>
-                {['', 'Username', 'Nome', 'Link Bio', 'Plano', 'Status', 'Contratação', 'Ações'].map(h => (
-                  <th key={h} style={{
-                    textAlign: 'left', padding: '10px 12px', fontSize: '11px',
-                    fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em',
-                    whiteSpace: 'nowrap',
-                  }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {clientes.map((c, i) => {
-                const sc = STATUS_COLORS[c.status] || STATUS_COLORS.Ativo
-                return (
-                  <tr key={c.id} style={{
-                    borderBottom: '1px solid #2a2a3a',
-                    backgroundColor: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)',
-                  }}
-                    onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(168,85,247,0.04)'}
-                    onMouseLeave={e => e.currentTarget.style.backgroundColor = i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)'}
-                  >
-                    <td style={{ padding: '10px 12px' }}>
-                      <AvatarSmall avatar={c.avatar} username={c.username} />
-                    </td>
-                    <td style={{ padding: '10px 12px', color: '#a855f7', fontWeight: '600' }}>
-                      @{c.username}
-                    </td>
-                    <td style={{ padding: '10px 12px', color: '#94a3b8' }}>
-                      {c.nome || '—'}
-                    </td>
-                    <td style={{ padding: '10px 12px' }}>
-                      {c.linkBio ? (
-                        <a href={c.linkBio} target="_blank" rel="noreferrer"
-                          style={{ color: '#3b82f6', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px' }}>
-                          <ExternalLink size={11} />
-                          {c.linkBio.replace(/^https?:\/\//, '').slice(0, 30)}{c.linkBio.length > 35 ? '…' : ''}
-                        </a>
-                      ) : <span style={{ color: '#64748b' }}>—</span>}
-                    </td>
-                    <td style={{ padding: '10px 12px' }}>
-                      <span style={{
-                        backgroundColor: 'rgba(168,85,247,0.12)', color: '#a855f7',
-                        border: '1px solid rgba(168,85,247,0.25)',
-                        fontSize: '11px', fontWeight: '600', padding: '2px 8px', borderRadius: '20px',
-                      }}>{c.plano}</span>
-                    </td>
-                    <td style={{ padding: '10px 12px' }}>
-                      <span style={{
-                        backgroundColor: sc.bg, color: sc.color, border: `1px solid ${sc.border}`,
-                        fontSize: '11px', fontWeight: '600', padding: '2px 8px', borderRadius: '20px',
-                      }}>{c.status}</span>
-                    </td>
-                    <td style={{ padding: '10px 12px', color: '#64748b', fontSize: '12px', whiteSpace: 'nowrap' }}>
-                      {c.dataContratacao || '—'}
-                    </td>
-                    <td style={{ padding: '10px 12px' }}>
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <IconBtn onClick={() => openEdit(c)} title="Editar">
-                          <Edit2 size={13} />
-                        </IconBtn>
-                        <IconBtn onClick={() => setConfirmDelete(c.id)} title="Remover" danger>
-                          <Trash2 size={13} />
-                        </IconBtn>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Notes column if any */}
-      {clientes.some(c => c.notas) && (
-        <div style={{ marginTop: '24px' }}>
-          <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#94a3b8', marginBottom: '12px' }}>Notas</h3>
-          {clientes.filter(c => c.notas).map(c => (
-            <div key={c.id} style={{
-              backgroundColor: '#1c1c26', border: '1px solid #2a2a3a', borderRadius: '8px',
-              padding: '12px 16px', marginBottom: '8px',
-            }}>
-              <span style={{ color: '#a855f7', fontWeight: '600', fontSize: '13px' }}>@{c.username}</span>
-              <span style={{ color: '#64748b', fontSize: '12px', marginLeft: '8px' }}>{c.notas}</span>
+      {view === 'ativos' ? (
+        clientes.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '60px 0', color: '#64748b', border: '2px dashed #2a2a3a', borderRadius: '12px' }}>
+            <CheckCircle size={40} style={{ marginBottom: '12px', opacity: 0.3 }} />
+            <div style={{ fontSize: '15px', fontWeight: '600', marginBottom: '6px' }}>Nenhum cliente ainda</div>
+            <div style={{ fontSize: '13px' }}>Marque leads como cliente ou adicione manualmente.</div>
+          </div>
+        ) : (
+          isMobile ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {clientes.map(c => renderMobileCard(c))}
             </div>
-          ))}
-        </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #2a2a3a' }}>
+                    {['', 'Username', 'Nome', 'Link Bio', 'Plano', 'Status', 'Contratação', 'Ações'].map(h => (
+                      <th key={h} style={{ textAlign: 'left', padding: '10px 12px', fontSize: '11px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {clientes.map((c, i) => renderTableRow(c, i))}
+                </tbody>
+              </table>
+            </div>
+          )
+        )
+      ) : (
+        excluidos.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '60px 0', color: '#64748b', border: '1px solid #2a2a3a', borderRadius: '12px', backgroundColor: '#16161d' }}>
+            <Ghost size={40} style={{ marginBottom: '12px', opacity: 0.3 }} />
+            <div style={{ fontSize: '15px', fontWeight: '600', marginBottom: '6px' }}>Lixeira vazia</div>
+            <div style={{ fontSize: '13px' }}>Leads que você excluir aparecerão aqui.</div>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px' }}>
+            {excluidos.map(l => (
+              <div key={l.id} style={{
+                backgroundColor: '#1c1c26', border: '1px solid #2a2a3a', borderRadius: '12px', padding: '16px',
+                display: 'flex', gap: '12px', alignItems: 'center'
+              }}>
+                <AvatarSmall avatar={l.avatar} username={l.username} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ color: '#e2e8f0', fontWeight: '700', fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis' }}>@{l.username}</div>
+                  <div style={{ color: '#64748b', fontSize: '11px' }}>{l.fullName || 'Sem nome'}</div>
+                </div>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <IconBtn onClick={() => onRestaurarLead(l.id)} title="Restaurar"><RotateCcw size={14} /></IconBtn>
+                  <IconBtn onClick={() => setPermanentDeleteId(l.id)} title="Remover Definitivamente" danger><Trash2 size={14} /></IconBtn>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
       )}
 
-      {/* Form Modal */}
+      {/* Modals */}
       {showForm && (
         <Modal title={editId !== null ? 'Editar Cliente' : 'Adicionar Cliente'} onClose={closeForm}>
           <FormField label="Username Instagram *">
@@ -307,41 +395,43 @@ export default function LeadsCadastrados({ clientes, onAdd, onEdit, onRemove }) 
             />
           </FormField>
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '8px' }}>
-            <button onClick={closeForm} style={{
-              padding: '9px 18px', borderRadius: '8px', border: '1px solid #2a2a3a',
-              backgroundColor: 'transparent', color: '#94a3b8', fontSize: '13px', cursor: 'pointer',
-            }}>
+            <button onClick={closeForm} style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid #2a2a3a', backgroundColor: 'transparent', color: '#94a3b8', fontSize: '13px', cursor: 'pointer' }}>
               Cancelar
             </button>
-            <button onClick={handleSave} style={{
-              display: 'flex', alignItems: 'center', gap: '6px',
-              padding: '9px 18px', borderRadius: '8px', border: 'none',
-              backgroundColor: '#a855f7', color: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer',
-            }}>
+            <button onClick={handleSave} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 18px', borderRadius: '8px', border: 'none', backgroundColor: '#a855f7', color: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
               <Save size={14} /> Salvar
             </button>
           </div>
         </Modal>
       )}
 
-      {/* Confirm Delete */}
       {confirmDelete && (
         <Modal title="Remover cliente?" onClose={() => setConfirmDelete(null)}>
           <p style={{ color: '#94a3b8', fontSize: '14px', marginTop: 0 }}>
             Tem certeza que deseja remover este cliente? Esta ação não pode ser desfeita.
           </p>
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-            <button onClick={() => setConfirmDelete(null)} style={{
-              padding: '9px 18px', borderRadius: '8px', border: '1px solid #2a2a3a',
-              backgroundColor: 'transparent', color: '#94a3b8', fontSize: '13px', cursor: 'pointer',
-            }}>
+            <button onClick={() => setConfirmDelete(null)} style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid #2a2a3a', backgroundColor: 'transparent', color: '#94a3b8', fontSize: '13px', cursor: 'pointer' }}>
               Cancelar
             </button>
-            <button onClick={() => handleDelete(confirmDelete)} style={{
-              padding: '9px 18px', borderRadius: '8px', border: 'none',
-              backgroundColor: '#ef4444', color: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer',
-            }}>
+            <button onClick={() => handleDelete(confirmDelete)} style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', backgroundColor: '#ef4444', color: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
               Remover
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {permanentDeleteId && (
+        <Modal title="Excluir permanentemente?" onClose={() => setPermanentDeleteId(null)}>
+          <p style={{ color: '#94a3b8', fontSize: '14px', marginTop: 0 }}>
+            Este lead será removido definitivamente da lixeira. Esta ação é irreversível.
+          </p>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+            <button onClick={() => setPermanentDeleteId(null)} style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid #2a2a3a', backgroundColor: 'transparent', color: '#94a3b8', fontSize: '13px', cursor: 'pointer' }}>
+              Cancelar
+            </button>
+            <button onClick={() => handlePermanentDelete(permanentDeleteId)} style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', backgroundColor: '#ef4444', color: '#fff', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
+              Excluir Definitivamente
             </button>
           </div>
         </Modal>
@@ -364,16 +454,6 @@ function IconBtn({ onClick, title, danger, children }) {
         color: danger ? '#ef4444' : '#64748b',
         cursor: 'pointer',
         transition: 'all 0.15s',
-      }}
-      onMouseEnter={e => {
-        e.currentTarget.style.borderColor = danger ? '#ef4444' : '#a855f7'
-        e.currentTarget.style.color = danger ? '#ef4444' : '#a855f7'
-        e.currentTarget.style.backgroundColor = danger ? 'rgba(239,68,68,0.15)' : 'rgba(168,85,247,0.1)'
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.borderColor = danger ? 'rgba(239,68,68,0.3)' : '#2a2a3a'
-        e.currentTarget.style.color = danger ? '#ef4444' : '#64748b'
-        e.currentTarget.style.backgroundColor = danger ? 'rgba(239,68,68,0.08)' : 'transparent'
       }}
     >
       {children}

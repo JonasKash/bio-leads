@@ -35,3 +35,27 @@ button {
 ::-webkit-scrollbar-thumb:hover {
   background: #a855f7;
 }
+
+/* ── Mobile globals ───────────────────────────── */
+@media (max-width: 767px) {
+  /* Reserve space for fixed bottom nav */
+  #main-content {
+    padding-bottom: 68px !important;
+  }
+
+  /* Thin scrollbars on mobile */
+  ::-webkit-scrollbar {
+    width: 3px;
+    height: 3px;
+  }
+
+  /* Prevent text size inflation on orientation change */
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Better touch targets for all buttons */
+  button, a {
+    -webkit-tap-highlight-color: transparent;
+  }
+}

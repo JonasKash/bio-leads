@@ -1,6 +1,70 @@
 import { Target, CheckCircle, Zap, FileSpreadsheet } from 'lucide-react'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 export default function Sidebar({ activeTab, setActiveTab, clientesCount, uploadedCount }) {
+  const isMobile = useIsMobile()
+
+  // ── Mobile: fixed bottom navigation ─────────────────────────────────────────
+  if (isMobile) {
+    const tabs = [
+      { id: 'leads', icon: <Target size={22} />, label: 'Leads' },
+      { id: 'clientes', icon: <CheckCircle size={22} />, label: 'Clientes', badge: clientesCount || undefined, badgeColor: '#22c55e' },
+      { id: 'importar', icon: <FileSpreadsheet size={22} />, label: 'Importar', badge: uploadedCount > 0 ? uploadedCount : undefined, badgeColor: '#a855f7' },
+      { id: 'scraper', icon: <Zap size={22} />, label: '% Engage', badgeColor: '#a855f7' },
+    ]
+
+    return (
+      <nav style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 200,
+        height: '60px',
+        backgroundColor: '#16161d',
+        borderTop: '1px solid #2a2a3a',
+        display: 'flex',
+        alignItems: 'stretch',
+      }}>
+        {tabs.map(t => {
+          const active = activeTab === t.id
+          return (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              style={{
+                flex: 1,
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                gap: '3px',
+                backgroundColor: 'transparent', border: 'none',
+                color: active ? '#a855f7' : '#64748b',
+                fontSize: '10px', fontWeight: active ? '700' : '400',
+                cursor: 'pointer',
+                position: 'relative',
+                transition: 'color 0.15s',
+                borderTop: active ? '2px solid #a855f7' : '2px solid transparent',
+                paddingBottom: '2px',
+              }}
+            >
+              {t.icon}
+              {t.label}
+              {t.badge !== undefined && (
+                <span style={{
+                  position: 'absolute', top: '6px', right: 'calc(50% - 20px)',
+                  backgroundColor: t.badgeColor,
+                  color: '#fff',
+                  fontSize: '9px', fontWeight: '700',
+                  padding: '1px 5px', borderRadius: '20px',
+                  minWidth: '16px', textAlign: 'center',
+                  lineHeight: '14px',
+                }}>
+                  {t.badge > 99 ? '99+' : t.badge}
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </nav>
+    )
+  }
+
+  // ── Desktop: sidebar ─────────────────────────────────────────────────────────
   return (
     <aside style={{
       width: '240px',
@@ -20,13 +84,9 @@ export default function Sidebar({ activeTab, setActiveTab, clientesCount, upload
         gap: '10px',
       }}>
         <div style={{
-          width: '36px',
-          height: '36px',
-          backgroundColor: '#a855f7',
-          borderRadius: '10px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          width: '36px', height: '36px',
+          backgroundColor: '#a855f7', borderRadius: '10px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <Zap size={18} color="#fff" fill="#fff" />
         </div>
@@ -43,15 +103,6 @@ export default function Sidebar({ activeTab, setActiveTab, clientesCount, upload
         </div>
 
         <NavItem
-          icon={<FileSpreadsheet size={18} />}
-          label="Importar Planilha"
-          count={uploadedCount > 0 ? uploadedCount : undefined}
-          countColor="#a855f7"
-          active={activeTab === 'importar'}
-          onClick={() => setActiveTab('importar')}
-        />
-
-        <NavItem
           icon={<Target size={18} />}
           label="Leads para Cadastrar"
           active={activeTab === 'leads'}
@@ -65,6 +116,22 @@ export default function Sidebar({ activeTab, setActiveTab, clientesCount, upload
           active={activeTab === 'clientes'}
           onClick={() => setActiveTab('clientes')}
           countColor="#22c55e"
+        />
+
+        <NavItem
+          icon={<FileSpreadsheet size={18} />}
+          label="Importar Planilha"
+          count={uploadedCount > 0 ? uploadedCount : undefined}
+          countColor="#a855f7"
+          active={activeTab === 'importar'}
+          onClick={() => setActiveTab('importar')}
+        />
+
+        <NavItem
+          icon={<Zap size={18} />}
+          label="% Engage"
+          active={activeTab === 'scraper'}
+          onClick={() => setActiveTab('scraper')}
         />
       </nav>
 
@@ -87,20 +154,13 @@ function NavItem({ icon, label, count, active, onClick, countColor = '#a855f7' }
       onClick={onClick}
       style={{
         width: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
-        padding: '10px 12px',
-        borderRadius: '8px',
-        border: 'none',
+        display: 'flex', alignItems: 'center', gap: '10px',
+        padding: '10px 12px', borderRadius: '8px', border: 'none',
         backgroundColor: active ? 'rgba(168, 85, 247, 0.15)' : 'transparent',
         color: active ? '#a855f7' : '#94a3b8',
-        fontSize: '13px',
-        fontWeight: active ? '600' : '400',
-        cursor: 'pointer',
-        transition: 'all 0.15s',
-        textAlign: 'left',
-        marginBottom: '4px',
+        fontSize: '13px', fontWeight: active ? '600' : '400',
+        cursor: 'pointer', transition: 'all 0.15s',
+        textAlign: 'left', marginBottom: '4px',
         boxShadow: active ? 'inset 0 0 0 1px rgba(168, 85, 247, 0.3)' : 'none',
       }}
       onMouseEnter={e => {
@@ -122,11 +182,8 @@ function NavItem({ icon, label, count, active, onClick, countColor = '#a855f7' }
         <span style={{
           backgroundColor: active ? 'rgba(168, 85, 247, 0.3)' : '#1c1c26',
           color: countColor,
-          fontSize: '11px',
-          fontWeight: '700',
-          padding: '2px 7px',
-          borderRadius: '20px',
-          flexShrink: 0,
+          fontSize: '11px', fontWeight: '700',
+          padding: '2px 7px', borderRadius: '20px', flexShrink: 0,
         }}>
           {count}
         </span>

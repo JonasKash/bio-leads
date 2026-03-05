@@ -20,8 +20,8 @@ export function engColor(eng) {
   return { bg: 'rgba(239,68,68,0.15)', color: '#ef4444', border: 'rgba(239,68,68,0.3)' }
 }
 
-export default function EngajamentoBadge({ followers, following, posts }) {
-  const eng = calcEngajamento(followers, following, posts)
+export default function EngajamentoBadge({ followers, following, posts, realEng }) {
+  const eng = realEng || calcEngajamento(followers, following, posts)
   if (!eng) return null
   const { bg, color, border } = engColor(eng)
   return (
