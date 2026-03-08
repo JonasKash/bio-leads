@@ -26,7 +26,7 @@ function saveStorage(key, list) {
 let nextId = Date.now()
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('importar')
+  const [activeTab, setActiveTab] = useState('leads')
   const [clientes, setClientes] = useState(() => loadStorage(STORAGE_CLIENTES))
   const [uploadedLeads, setUploadedLeads] = useState(() => loadStorage(STORAGE_UPLOADED))
   const [excluidos, setExcluidos] = useState(() => loadStorage(STORAGE_EXCLUIDOS))
